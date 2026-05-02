@@ -1,25 +1,19 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, PenTool, Settings, LogOut, Rocket } from 'lucide-react';
+import { LayoutDashboard, Users, PenTool, Settings, LogOut, Rocket, Map, Repeat, Scissors } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
-import { useState, useEffect } from 'react';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: Users, label: 'Analisar Perfil', path: '/analyzer' },
-  { icon: PenTool, label: 'Criador de Roteiros', path: '/creator' },
+  { icon: Map, label: 'Mapear Nicho', path: '/niche-map' },
+  { icon: PenTool, label: 'Criar do Zero', path: '/creator' },
+  { icon: Repeat, label: 'Adaptar Vídeo', path: '/adapt' },
+  { icon: Scissors, label: 'Garimpar Cortes', path: '/miner' },
 ];
 
 export default function Sidebar() {
   const location = useLocation();
-  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    supabase.from('profiles').select('count', { count: 'exact', head: true })
-      .then(({ error }) => setDbConnected(!error))
-      .catch(() => setDbConnected(false));
-  }, []);
 
   return (
     <aside className="w-64 border-r border-white/5 bg-black/40 backdrop-blur-xl flex flex-col h-screen">
@@ -71,15 +65,9 @@ export default function Sidebar() {
         
         <div className="p-4 glass-card rounded-2xl">
           <div className="flex items-center gap-2 mb-3">
-            <div className={cn(
-              "w-2 h-2 rounded-full animate-pulse",
-              dbConnected === true ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : 
-              dbConnected === false ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" : 
-              "bg-zinc-600"
-            )} />
+            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-              {dbConnected === true ? "Supabase Conectado" : 
-               dbConnected === false ? "Erro de Conexão" : "Conectando..."}
+              Scrooll AI Online
             </span>
           </div>
           <div className="flex items-center gap-3 mb-3">

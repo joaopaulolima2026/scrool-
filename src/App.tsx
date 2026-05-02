@@ -2,6 +2,9 @@ import { Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import ProfileAnalyzer from './pages/ProfileAnalyzer';
 import ScriptCreator from './pages/ScriptCreator';
+import NicheMap from './pages/NicheMap';
+import AdaptVideo from './pages/AdaptVideo';
+import VideoMiner from './pages/VideoMiner';
 import Sidebar from './components/layout/Sidebar';
 import { Toaster } from 'sonner';
 
@@ -18,7 +21,10 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/analyzer" element={<ProfileAnalyzer />} />
+            <Route path="/niche-map" element={<NicheMap />} />
             <Route path="/creator" element={<ScriptCreator />} />
+            <Route path="/adapt" element={<AdaptVideo />} />
+            <Route path="/miner" element={<VideoMiner />} />
           </Routes>
         </div>
       </main>
