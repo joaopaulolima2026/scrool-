@@ -5,6 +5,7 @@ import ScriptCreator from './pages/ScriptCreator';
 import NicheMap from './pages/NicheMap';
 import AdaptVideo from './pages/AdaptVideo';
 import VideoMiner from './pages/VideoMiner';
+import Settings from './pages/Settings';
 import Sidebar from './components/layout/Sidebar';
 import { Toaster } from 'sonner';
 
@@ -25,6 +26,7 @@ function App() {
             <Route path="/creator" element={<ScriptCreator />} />
             <Route path="/adapt" element={<AdaptVideo />} />
             <Route path="/miner" element={<VideoMiner />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
       </main>

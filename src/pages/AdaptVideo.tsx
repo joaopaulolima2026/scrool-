@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Repeat, Loader2, Sparkles, Copy, RefreshCw, ChevronRight, 
+  Goal, Loader2, Sparkles, Copy, RefreshCw, ChevronRight, Repeat,
   AlertTriangle, Film, Mic, Type, Video
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/gemini';
+import { generateContent } from '@/lib/ai';
 import { ADAPT_VIDEO_PROMPT } from '@/lib/prompts';
+import { resolveMediaInput } from '@/lib/resolveMediaInput';
 
 const toneOptions = [
   { value: 'direto', label: 'Direto e Confiante', icon: '💪' },
@@ -20,6 +21,7 @@ const toneOptions = [
 export default function AdaptVideo() {
   const [reference, setReference] = useState('');
   const [niche, setNiche] = useState('');
+  const [objective, setObjective] = useState('');
   const [tone, setTone] = useState('direto');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -34,38 +36,53 @@ export default function AdaptVideo() {
 
   const handleGenerate = async () => {
     if (!reference.trim()) {
-      toast.error('Cole a transcrição ou descrição do vídeo de referência.');
+      toast.error('Cole o link (YouTube, em modo dev), transcrição ou descreva o vídeo.');
       return;
     }
     if (!niche.trim()) {
       toast.error('Informe o seu nicho/área de atuação.');
       return;
     }
+    if (!objective.trim()) {
+      toast.error('Descreva o objetivo: o que você quer que a IA entregue com base nesse vídeo.');
+      return;
+    }
 
     setLoading(true);
     setResult(null);
     setError(null);
-    toast.info('Analisando vídeo e adaptando roteiro...');
 
     try {
+      toast.info('Obtendo legenda/link ou usando seu texto…');
+
+      const resolved = await resolveMediaInput(reference.trim());
+      if (!resolved.ok) {
+        setError(resolved.message);
+        toast.error(resolved.message.split('\n')[0] ?? resolved.message);
+        return;
+      }
+
+      toast.info(`Fonte: ${resolved.sourceLabel}. Gerando resultado…`);
+
       const selectedTone = toneOptions.find(t => t.value === tone)?.label || 'Direto e Confiante';
-      const userMessage = `## Vídeo de referência (transcrição/descrição):\n${reference}\n\n## Meu nicho:\n${niche}\n\n## Tom desejado:\n${selectedTone}`;
+      const userMessage = `## Objetivo (prioridade máxima)\n${objective.trim()}\n\n---\n\n## Material do vídeo (fonte: ${resolved.sourceLabel})\n${resolved.text}\n\n---\n\n## Meu nicho\n${niche.trim()}\n\n## Tom desejado\n${selectedTone}`;
       const response = await generateContent(ADAPT_VIDEO_PROMPT, userMessage);
       setResult(response);
-      toast.success('Roteiro adaptado com sucesso!');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao adaptar roteiro.');
-      toast.error(err.message || 'Erro ao adaptar roteiro.');
+      toast.success('Concluído!');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao adaptar roteiro.';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
-    if (result) {
-      navigator.clipboard.writeText(result);
-      toast.success('Copiado!');
-    }
+  const handleCopy = async () => {
+    if (!result) return;
+    const ok = await copyToClipboard(result);
+    if (ok) toast.success('Copiado!');
+    else toast.error('Não foi possível copiar.');
   };
 
   return (
@@ -88,7 +105,7 @@ export default function AdaptVideo() {
           Adapte Virais para o <span className="text-gradient">Seu Nicho</span>
         </motion.h1>
         <p className="text-zinc-400 text-lg max-w-2xl">
-          Cole um vídeo de referência e a IA reescreve um roteiro original usando o mesmo mecanismo viral.
+          Defina objetivo + nicho, depois cole link YouTube público ou transcrição. Com o servidor dev do Vite, dá para puxar legendas do YouTube; Instagram/TikTok ainda pedem texto colado.
         </p>
       </header>
 
@@ -107,8 +124,21 @@ export default function AdaptVideo() {
           <textarea
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            placeholder="Cole a transcrição, link ou descreva o vídeo viral de referência..."
+            placeholder={`Primeira linha: link YouTube (ex.: watch, Shorts ou youtu.be) — funciona só em dev com proxy;\nOu cole transcrição / descreva;\nNas linhas abaixo (após ENTER) você pode acrescentar notas rápidas — elas entram junto na análise.`}
             className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-zinc-600 min-h-[160px] focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/40 transition-all outline-none resize-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+            <Goal className="w-4 h-4" />
+            Objetivo da análise
+          </label>
+          <textarea
+            value={objective}
+            onChange={(e) => setObjective(e.target.value)}
+            placeholder={`Ex.: "adaptar esse gancho viral para pacientes odonto" • "listar só 7 hooks para Reels"`}
+            className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-zinc-600 min-h-[100px] focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/40 transition-all outline-none resize-none"
           />
         </div>
 
@@ -154,7 +184,7 @@ export default function AdaptVideo() {
 
         <button
           onClick={handleGenerate}
-          disabled={loading || !reference.trim() || !niche.trim()}
+          disabled={loading || !reference.trim() || !niche.trim() || !objective.trim()}
           className="w-full premium-gradient text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50 text-lg"
         >
           {loading ? (
@@ -236,7 +266,18 @@ export default function AdaptVideo() {
                 <button onClick={handleCopy} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm">
                   <Copy className="w-4 h-4" /> Copiar
                 </button>
-                <button onClick={() => { setResult(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResult(null);
+                    setReference('');
+                    setNiche('');
+                    setObjective('');
+                    setTone('direto');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm"
+                >
                   <RefreshCw className="w-4 h-4" /> Novo
                 </button>
               </div>

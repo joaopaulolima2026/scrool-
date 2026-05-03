@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, PenTool, Settings, LogOut, Rocket, Map, Repeat, Scissors } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
@@ -58,10 +59,13 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-white/5 space-y-4">
-        <button className="flex items-center gap-3 px-4 py-3 w-full text-zinc-500 hover:text-zinc-300 transition-colors">
+        <Link
+          to="/settings"
+          className="flex items-center gap-3 px-4 py-3 w-full text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
           <Settings className="w-5 h-5" />
           <span className="font-medium">Configurações</span>
-        </button>
+        </Link>
         
         <div className="p-4 glass-card rounded-2xl">
           <div className="flex items-center gap-2 mb-3">
@@ -76,7 +80,12 @@ export default function Sidebar() {
               <p className="text-sm font-medium text-white truncate">João Paulo</p>
               <p className="text-xs text-zinc-500 truncate">Pro Plan</p>
             </div>
-            <button className="text-zinc-500 hover:text-white transition-colors">
+            <button
+              type="button"
+              onClick={() => toast.message('Sessão local — sem login ainda. Saída em breve.')}
+              className="text-zinc-500 hover:text-white transition-colors"
+              aria-label="Sair"
+            >
               <LogOut className="w-4 h-4" />
             </button>
           </div>

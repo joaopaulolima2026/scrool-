@@ -1,37 +1,69 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Search, Instagram, Music, ArrowRight, Loader2, BarChart3, 
-  Target, Zap, RefreshCw, Users, Eye, Heart, MessageCircle, 
-  Play, Sparkles, TrendingUp, ShieldCheck, Copy, ChevronRight, AlertTriangle
+  Search, Instagram, Music, Loader2, BarChart3, 
+  Zap, RefreshCw, Sparkles, TrendingUp, ShieldCheck, Copy, ChevronRight, AlertTriangle
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/gemini';
+import { generateContent } from '@/lib/ai';
 import { PROFILE_ANALYSIS_PROMPT } from '@/lib/prompts';
 
-// Simulação de dados reais que viriam de um backend/scraper
-const mockScrapedData = (username: string) => ({
-  username: `@${username.replace('@', '')}`,
-  nome: username.replace('@', '').split('.')[0].charAt(0).toUpperCase() + username.replace('@', '').split('.')[0].slice(1),
-  bio: "Estrategista de Conteúdo Viral | Ajudo marcas a crescerem organicamente no digital com vídeos curtos de alta retenção.",
-  seguidores: 45200,
-  seguindo: 892,
-  total_posts: 128,
-  verificado: false,
-  categoria: "Creator",
-  link_bio: "https://linktr.ee/perfil",
-  ultimos_posts: [
-    { tipo: "reel", data: "2026-04-28", likes: 3200, comentarios: 145, views: 48000, legenda: "Como viralizar em 2026 usando apenas 3 ferramentas..." },
-    { tipo: "carousel", data: "2026-04-25", likes: 1800, comentarios: 89, views: 0, legenda: "Guia completo do Reels que ninguém te conta." },
-    { tipo: "reel", data: "2026-04-22", likes: 5400, comentarios: 312, views: 120000, legenda: "O segredo da retenção está nos primeiros 2 segundos." },
-    { tipo: "image", data: "2026-04-20", likes: 900, comentarios: 45, views: 0, legenda: "Bastidores da nossa última gravação." },
-    { tipo: "reel", data: "2026-04-18", likes: 2100, comentarios: 98, views: 35000, legenda: "Pare de cometer esse erro no seu hook!" },
-  ],
-  media_likes_ultimos_30: 2800,
-  media_views_ultimos_30: 35000,
-  frequencia_posts_semana: 4.2
-});
+/** Dados de demonstração até existir scraping/API — já variam conforme Instagram vs TikTok. */
+const mockScrapedData = (username: string, platform: 'instagram' | 'tiktok') => {
+  const slug = username.replace('@', '').split('.')[0] || 'perfil';
+  const nome =
+    slug.charAt(0).toUpperCase() +
+    slug.slice(1).replace(/[_-]/g, ' ');
+
+  if (platform === 'tiktok') {
+    return {
+      plataforma: 'TikTok' as const,
+      username: `@${slug}`,
+      nome,
+      bio: 'Conteúdo curto viral | Trends + histórias em 60s',
+      seguidores: 128400,
+      seguindo: 412,
+      total_posts: 210,
+      verificado: true,
+      categoria: 'Creator',
+      link_bio: 'https://tiktok.com/link',
+      ultimos_posts: [
+        { tipo: 'tiktok-video', data: '2026-04-28', likes: 18200, comentarios: 620, views: 310000, legenda: '3 erros que te impedem de estourar no FYP' },
+        { tipo: 'tiktok-duet', data: '2026-04-26', likes: 9600, comentarios: 410, views: 180000, legenda: 'Respondendo haters com números' },
+        { tipo: 'tiktok-video', data: '2026-04-23', likes: 22100, comentarios: 890, views: 420000, legenda: 'POV: você descobriu o hook certo' },
+        { tipo: 'tiktok-video', data: '2026-04-20', likes: 5400, comentarios: 210, views: 95000, legenda: 'Trend + twist do nicho' },
+        { tipo: 'tiktok-video', data: '2026-04-17', likes: 13300, comentarios: 505, views: 260000, legenda: 'Storytime: do zero ao primeiro viral' },
+      ],
+      media_likes_ultimos_30: 14200,
+      media_views_ultimos_30: 245000,
+      frequencia_posts_semana: 5.1,
+    };
+  }
+
+  return {
+    plataforma: 'Instagram' as const,
+    username: `@${slug}`,
+    nome,
+    bio: 'Estrategista de Conteúdo Viral | Ajudo marcas a crescerem organicamente no digital com vídeos curtos de alta retenção.',
+    seguidores: 45200,
+    seguindo: 892,
+    total_posts: 128,
+    verificado: false,
+    categoria: 'Creator',
+    link_bio: 'https://linktr.ee/perfil',
+    ultimos_posts: [
+      { tipo: 'reel', data: '2026-04-28', likes: 3200, comentarios: 145, views: 48000, legenda: 'Como viralizar em 2026 usando apenas 3 ferramentas...' },
+      { tipo: 'carousel', data: '2026-04-25', likes: 1800, comentarios: 89, views: 0, legenda: 'Guia completo do Reels que ninguém te conta.' },
+      { tipo: 'reel', data: '2026-04-22', likes: 5400, comentarios: 312, views: 120000, legenda: 'O segredo da retenção está nos primeiros 2 segundos.' },
+      { tipo: 'image', data: '2026-04-20', likes: 900, comentarios: 45, views: 0, legenda: 'Bastidores da nossa última gravação.' },
+      { tipo: 'reel', data: '2026-04-18', likes: 2100, comentarios: 98, views: 35000, legenda: 'Pare de cometer esse erro no seu hook!' },
+    ],
+    media_likes_ultimos_30: 2800,
+    media_views_ultimos_30: 35000,
+    frequencia_posts_semana: 4.2,
+  };
+};
 
 export default function ProfileAnalyzer() {
   const [input, setInput] = useState('');
@@ -74,15 +106,17 @@ export default function ProfileAnalyzer() {
     setLoading(true);
     setResult(null);
     setError(null);
-    toast.info(`Extraindo dados reais de @${username}...`);
+    toast.info(`Gerando análise com dados de exemplo (${platform === 'tiktok' ? 'TikTok' : 'Instagram'}) para @${username}…`);
 
     try {
-      // 1. Simulação da extração de dados reais (onde entraria o backend/scraper)
-      const profileData = mockScrapedData(username);
+      // 1. Dados de demonstração por plataforma (substituir por backend quando existir)
+      const profileData = mockScrapedData(username, platform);
       
       // 2. Formatação dos dados para o prompt
       const formattedData = `
-## Dados do perfil analisado
+## Dados do perfil (demonstração — substitua por API/scraper em produção)
+- Plataforma selecionada na UI: ${platform === 'tiktok' ? 'TikTok' : 'Instagram'}
+- Plataforma dos dados de exemplo: ${profileData.plataforma}
 - Username: ${profileData.username}
 - Nome: ${profileData.nome}
 - Bio: ${profileData.bio}
@@ -103,13 +137,14 @@ ${profileData.ultimos_posts.map((post, idx) => `${idx + 1}. ${post.tipo} | ${pos
 
       // 3. Chamada para a IA Gemini
       const prompt = PROFILE_ANALYSIS_PROMPT.replace('{{PROFILE_DATA}}', formattedData);
-      const response = await generateContent(prompt, `Analise o perfil @${username} com base nos dados fornecidos.`);
+      const response = await generateContent(prompt, `Plataforma: ${platform}. Analise o perfil @${username} com base nos dados de exemplo fornecidos.`);
       
       setResult(response);
       toast.success('Análise estratégica concluída!');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao analisar perfil.');
-      toast.error(err.message || 'Erro ao analisar perfil.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao analisar perfil.';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -135,7 +170,7 @@ ${profileData.ultimos_posts.map((post, idx) => `${idx + 1}. ${post.tipo} | ${pos
           Decifre o <span className="text-gradient">DNA</span> do Perfil
         </motion.h1>
         <p className="text-zinc-400 text-lg max-w-2xl">
-          Engenharia reversa baseada em dados reais. Identifique o que sustenta o crescimento de qualquer criador.
+        Engenharia reversa com IA a partir de um conjunto típico de métricas. Para dados reais, integre um scraper conforme permitido pela plataforma.
         </p>
       </header>
 
@@ -260,14 +295,16 @@ ${profileData.ultimos_posts.map((post, idx) => `${idx + 1}. ${post.tipo} | ${pos
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-white">Análise Estratégica Completa</h3>
-                  <p className="text-sm text-zinc-500">Baseada em dados reais extraídos via scraper</p>
+                  <p className="text-sm text-zinc-500">IA + dados de exemplo (conecte API depois)</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(result);
-                    toast.success('Análise copiada!');
+                  type="button"
+                  onClick={async () => {
+                    const ok = await copyToClipboard(result);
+                    if (ok) toast.success('Análise copiada!');
+                    else toast.error('Não foi possível copiar. Tente selecionar o texto manualmente.');
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm"
                 >
@@ -333,7 +370,10 @@ ${profileData.ultimos_posts.map((post, idx) => `${idx + 1}. ${post.tipo} | ${pos
             {/* Disclaimer */}
             <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-zinc-500 text-sm">
               <ShieldCheck className="w-5 h-5 shrink-0" />
-              <p>Esta análise foi gerada por inteligência artificial avançada baseada em dados reais do perfil. As métricas calculadas seguem padrões de benchmark de 2025.</p>
+              <p>
+                Esta análise foi gerada por IA a partir de <strong className="text-zinc-400">dados de exemplo</strong> (não são métricas reais do perfil).
+                Substitua o mock por integração com API oficial ou scraper autorizado para produção.
+              </p>
             </div>
           </motion.div>
         )}

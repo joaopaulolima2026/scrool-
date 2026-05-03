@@ -5,9 +5,9 @@ import {
   Copy, RefreshCw, ChevronRight, Target, TrendingUp,
   AlertTriangle
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/gemini';
+import { generateContent } from '@/lib/ai';
 import { NICHE_MAP_PROMPT } from '@/lib/prompts';
 
 type Platform = 'instagram' | 'tiktok' | 'youtube';
@@ -48,19 +48,20 @@ export default function NicheMap() {
       const response = await generateContent(NICHE_MAP_PROMPT, userMessage);
       setResult(response);
       toast.success('Mapa do nicho gerado!');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao gerar análise.');
-      toast.error(err.message || 'Erro ao gerar análise.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao gerar análise.';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
-    if (result) {
-      navigator.clipboard.writeText(result);
-      toast.success('Copiado para a área de transferência!');
-    }
+  const handleCopy = async () => {
+    if (!result) return;
+    const ok = await copyToClipboard(result);
+    if (ok) toast.success('Copiado para a área de transferência!');
+    else toast.error('Não foi possível copiar.');
   };
 
   return (

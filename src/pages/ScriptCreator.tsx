@@ -4,9 +4,9 @@ import {
   Sparkles, Copy, RefreshCw, PenTool, Loader2, ChevronRight, 
   AlertTriangle, Star, X
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/gemini';
+import { generateContent } from '@/lib/ai';
 import { CREATE_SCRIPT_PROMPT } from '@/lib/prompts';
 
 interface Template {
@@ -78,8 +78,10 @@ export default function ScriptCreator() {
       const response = await generateContent(CREATE_SCRIPT_PROMPT, msg);
       setResult(response);
       toast.success('Roteiro gerado!');
-    } catch (err: any) {
-      setError(err.message); toast.error(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao gerar roteiro.';
+      setError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   };
 
@@ -200,7 +202,13 @@ export default function ScriptCreator() {
                 <div><h3 className="text-lg font-bold text-white">{selected?.name}</h3><p className="text-xs text-zinc-500">Nicho: {niche}</p></div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => { navigator.clipboard.writeText(result); toast.success('Copiado!'); }}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await copyToClipboard(result);
+                    if (ok) toast.success('Copiado!');
+                    else toast.error('Não foi possível copiar.');
+                  }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm"><Copy className="w-4 h-4" />Copiar</button>
                 <button onClick={() => { setResult(null); setSelected(null); setNiche(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm"><RefreshCw className="w-4 h-4" />Novo</button>

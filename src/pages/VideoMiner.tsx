@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Scissors, Loader2, Sparkles, Copy, RefreshCw, ChevronRight, 
-  AlertTriangle, FileText, Instagram, Music, Youtube, Hash
+  AlertTriangle, FileText, Instagram, Music, Youtube, Hash, Target
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/gemini';
+import { generateContent } from '@/lib/ai';
+import { resolveMediaInput } from '@/lib/resolveMediaInput';
 import { EXTRACT_CUTS_PROMPT } from '@/lib/prompts';
 
 type Platform = 'instagram' | 'tiktok' | 'youtube';
@@ -19,6 +20,7 @@ const platformConfig = {
 
 export default function VideoMiner() {
   const [transcript, setTranscript] = useState('');
+  const [minerFocus, setMinerFocus] = useState('');
   const [platform, setPlatform] = useState<Platform>('instagram');
   const [cutCount, setCutCount] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -34,36 +36,54 @@ export default function VideoMiner() {
 
   const handleGenerate = async () => {
     if (!transcript.trim()) {
-      toast.error('Cole a transcrição do vídeo longo.');
+      toast.error('Cole a transcrição ou link suportado (YouTube na primeira linha, em modo dev).');
       return;
-    }
-    if (transcript.trim().length < 200) {
-      toast.warning('Transcrição muito curta. Coloque pelo menos 200 caracteres para uma boa análise.');
     }
 
     setLoading(true);
     setResult(null);
     setError(null);
-    toast.info('Garimpando os melhores cortes...');
 
     try {
-      const userMessage = `## Transcrição do vídeo longo:\n${transcript}\n\n## Plataforma destino:\n${platformConfig[platform].label}\n\n## Número de cortes desejados:\n${cutCount}`;
+      toast.info('Resolvendo transcrição (link/texto)...');
+      const resolved = await resolveMediaInput(transcript.trim());
+      if (!resolved.ok) {
+        setError(resolved.message);
+        toast.error(resolved.message.split('\n')[0] ?? resolved.message);
+        return;
+      }
+
+      const wc = resolved.text.trim().split(/\s+/).filter(Boolean).length;
+      if (wc < 180) {
+        toast.warning(
+          'Texto ainda relativamente curto — resultados ficam mais ricos com transcrições longas.'
+        );
+      }
+
+      toast.info('Gerando cortes com IA…');
+      const extra =
+        minerFocus.trim().length > 0
+          ? `\n\n## Objetivo / foco adicional solicitado pelo usuário\n${minerFocus.trim()}\n`
+          : '';
+
+      const userMessage = `## Transcrição do vídeo longo (${resolved.sourceLabel}):\n${resolved.text}\n${extra}\n## Plataforma destino:\n${platformConfig[platform].label}\n\n## Número de cortes desejados:\n${cutCount}`;
       const response = await generateContent(EXTRACT_CUTS_PROMPT, userMessage);
       setResult(response);
       toast.success('Cortes extraídos com sucesso!');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao extrair cortes.');
-      toast.error(err.message || 'Erro ao extrair cortes.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao extrair cortes.';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
-    if (result) {
-      navigator.clipboard.writeText(result);
-      toast.success('Copiado!');
-    }
+  const handleCopy = async () => {
+    if (!result) return;
+    const ok = await copyToClipboard(result);
+    if (ok) toast.success('Copiado!');
+    else toast.error('Não foi possível copiar.');
   };
 
   const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
@@ -88,7 +108,7 @@ export default function VideoMiner() {
           Garimpe <span className="text-gradient">Cortes Virais</span>
         </motion.h1>
         <p className="text-zinc-400 text-lg max-w-2xl">
-          Cole a transcrição de um podcast, live ou palestra e a IA encontra os melhores momentos para viralizar.
+          Cole texto longo para garimpo — ou uma URL YouTube pública ao topo (captura legendas apenas com o servidor de desenvolvimento do Vite ligado).
         </p>
       </header>
 
@@ -115,8 +135,22 @@ export default function VideoMiner() {
           <textarea
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
-            placeholder="Cole aqui a transcrição completa ou parcial do podcast, live, webinar, palestra ou entrevista..."
+            placeholder={`URL YouTube na primeira linha (com npm run dev) ou cole a transcrição longa do podcast/live.`}
             className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-zinc-600 min-h-[250px] focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all outline-none resize-none font-mono text-sm leading-relaxed"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+            <Target className="w-4 h-4" />
+            Foco (opcional)
+          </label>
+          <input
+            type="text"
+            value={minerFocus}
+            onChange={(e) => setMinerFocus(e.target.value)}
+            placeholder='Ex.: "só polêmica e dados"'
+            className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-3 text-white text-sm placeholder:text-zinc-600 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 outline-none"
           />
         </div>
 
@@ -257,7 +291,7 @@ export default function VideoMiner() {
                 <button onClick={handleCopy} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm">
                   <Copy className="w-4 h-4" /> Copiar
                 </button>
-                <button onClick={() => { setResult(null); setTranscript(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm">
+                <button onClick={() => { setResult(null); setTranscript(''); setMinerFocus(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors text-sm">
                   <RefreshCw className="w-4 h-4" /> Novo
                 </button>
               </div>
