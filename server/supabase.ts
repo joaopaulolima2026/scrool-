@@ -1,9 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import 'dotenv/config'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL!
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+function getEnv(key: string): string {
+  const value = process.env[key]
+  if (!value) throw new Error(`Missing env var: ${key}`)
+  return value
+}
 
-export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+export const supabaseAdmin = createClient(
+  getEnv('VITE_SUPABASE_URL'),
+  getEnv('SUPABASE_SERVICE_ROLE_KEY'),
+  { auth: { autoRefreshToken: false, persistSession: false } },
+)

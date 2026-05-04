@@ -44,8 +44,8 @@ export async function fetchYoutubeCaptionsText(videoId: string): Promise<string>
 
       const fromXml = parseXmlTimedText(raw);
       if (fromXml.replace(/\s+/g, '').length > 80) return fromXml;
-    } catch {
-      /**/
+    } catch (err) {
+      console.warn(`[YouTube Captions] Failed ${url}:`, err instanceof Error ? err.message : String(err));
     }
   }
 

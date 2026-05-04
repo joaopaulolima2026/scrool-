@@ -2,6 +2,7 @@ import 'dotenv/config';
 import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
+import morgan from 'morgan';
 import { fetchYoutubeCaptionsText } from './services/youtubeCaps.js';
 import { generateGeminiContent } from './services/gemini.js';
 import { generateClaudeContent } from './services/anthropic.js';
@@ -9,9 +10,14 @@ import { generateClaudeContent } from './services/anthropic.js';
 const PORT = Number(process.env.PORT) || 8787;
 const isProd = process.env.NODE_ENV === 'production';
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : ['http://localhost:3000', 'http://localhost:5173'];
+
 const app = express();
-app.use(cors({ origin: process.env.CORS_ORIGIN || true }));
-app.use(express.json({ limit: '18mb' }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(morgan(isProd ? 'combined' : 'dev'));
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -43,18 +49,10 @@ app.get('/api/youtube/captions', async (req, res) => {
   }
 });
 
-type ChatBody = {
-  systemPrompt?: string;
-  userMessage?: string;
-  provider?: string;
-};
-
 app.post('/api/ai/chat', async (req, res) => {
-  const body = req.body as ChatBody;
-  const systemPrompt =
-    typeof body.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
-  const userMessage =
-    typeof body.userMessage === 'string' ? body.userMessage.trim() : '';
+  const body = req.body as Record<string, unknown>;
+  const systemPrompt = typeof body.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+  const userMessage = typeof body.userMessage === 'string' ? body.userMessage.trim() : '';
 
   if (!systemPrompt || !userMessage) {
     return res.status(400).json({
@@ -63,9 +61,11 @@ app.post('/api/ai/chat', async (req, res) => {
     });
   }
 
-  const p = (body.provider || process.env.AI_PROVIDER_DEFAULT || 'gemini')
-    .toLowerCase()
-    .trim();
+  const p = (
+    typeof body.provider === 'string'
+      ? body.provider
+      : process.env.AI_PROVIDER_DEFAULT ?? 'gemini'
+  ).toLowerCase().trim();
 
   try {
     if (p === 'claude' || p === 'anthropic') {

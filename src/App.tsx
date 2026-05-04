@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
 import ProfileAnalyzer from './pages/ProfileAnalyzer';
 import ScriptCreator from './pages/ScriptCreator';
@@ -19,15 +20,17 @@ function App() {
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
         
         <div className="max-w-7xl mx-auto">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/analyzer" element={<ProfileAnalyzer />} />
-            <Route path="/niche-map" element={<NicheMap />} />
-            <Route path="/creator" element={<ScriptCreator />} />
-            <Route path="/adapt" element={<AdaptVideo />} />
-            <Route path="/miner" element={<VideoMiner />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/analyzer" element={<ProfileAnalyzer />} />
+              <Route path="/niche-map" element={<NicheMap />} />
+              <Route path="/creator" element={<ScriptCreator />} />
+              <Route path="/adapt" element={<AdaptVideo />} />
+              <Route path="/miner" element={<VideoMiner />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </ErrorBoundary>
         </div>
       </main>
       <Toaster position="top-right" theme="dark" />

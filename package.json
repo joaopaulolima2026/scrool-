@@ -16,19 +16,22 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
+    "@types/morgan": "^1.9.10",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "framer-motion": "^11.5.4",
     "lucide-react": "^0.441.0",
+    "morgan": "^1.10.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "tsx": "^4.19.4"
+    "tsx": "^4.19.4",
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
