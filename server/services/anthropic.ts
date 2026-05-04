@@ -36,7 +36,7 @@ export async function generateClaudeContent(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 8192,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
     }),
@@ -49,8 +49,7 @@ export async function generateClaudeContent(
 
   if (!res.ok) {
     if ((res.status === 429 || res.status === 529) && retry < 5) {
-      const wait =
-        parseRetryAfterSeconds(res) ?? Math.min(120, 20 * Math.pow(2, retry));
+      const wait = parseRetryAfterSeconds(res) ?? Math.min(120, 20 * Math.pow(2, retry));
       console.warn(`[Claude] ${res.status}. ${wait}s… (${retry + 1}/5)`);
       await sleep(wait * 1000);
       return generateClaudeContent(systemPrompt, userMessage, retry + 1);
@@ -65,4 +64,71 @@ export async function generateClaudeContent(
   const text = block?.text?.trim();
   if (!text) throw new Error('Claude não retornou texto.');
   return text;
+}
+
+export async function streamClaudeContent(
+  systemPrompt: string,
+  userMessage: string,
+  onChunk: (chunk: string) => void,
+  retry = 0
+): Promise<void> {
+  if (!KEY) throw new Error('ANTHROPIC_API_KEY não configurada no servidor.');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 4096,
+      stream: true,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
+  });
+
+  if (!res.ok) {
+    if ((res.status === 429 || res.status === 529) && retry < 3) {
+      const wait = parseRetryAfterSeconds(res) ?? Math.min(60, 20 * Math.pow(2, retry));
+      await sleep(wait * 1000);
+      return streamClaudeContent(systemPrompt, userMessage, onChunk, retry + 1);
+    }
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Claude stream erro ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  if (!res.body) throw new Error('Claude: resposta sem body para stream.');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (!jsonStr || jsonStr === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(jsonStr) as {
+          type?: string;
+          delta?: { type?: string; text?: string };
+        };
+        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+          onChunk(parsed.delta.text);
+        }
+      } catch {
+        // linha SSE malformada, ignora
+      }
+    }
+  }
 }

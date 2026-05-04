@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/ai';
+import { generateContentStream } from '@/lib/ai';
 import { resolveMediaInput } from '@/lib/resolveMediaInput';
 import { EXTRACT_CUTS_PROMPT } from '@/lib/prompts';
 
@@ -67,8 +67,8 @@ export default function VideoMiner() {
           : '';
 
       const userMessage = `## Transcrição do vídeo longo (${resolved.sourceLabel}):\n${resolved.text}\n${extra}\n## Plataforma destino:\n${platformConfig[platform].label}\n\n## Número de cortes desejados:\n${cutCount}`;
-      const response = await generateContent(EXTRACT_CUTS_PROMPT, userMessage);
-      setResult(response);
+      setResult('');
+      await generateContentStream(EXTRACT_CUTS_PROMPT, userMessage, (chunk) => setResult((prev) => (prev ?? '') + chunk));
       toast.success('Cortes extraídos com sucesso!');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao extrair cortes.';

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/ai';
+import { generateContentStream } from '@/lib/ai';
 import { PROFILE_ANALYSIS_PROMPT } from '@/lib/prompts';
 
 /** Dados de demonstração até existir scraping/API — já variam conforme Instagram vs TikTok. */
@@ -135,11 +135,14 @@ ${profileData.ultimos_posts.map((post, idx) => `${idx + 1}. ${post.tipo} | ${pos
 - Frequência posts/semana: ${profileData.frequencia_posts_semana}
       `;
 
-      // 3. Chamada para a IA Gemini
+      // 3. Chamada para a IA com streaming
       const prompt = PROFILE_ANALYSIS_PROMPT.replace('{{PROFILE_DATA}}', formattedData);
-      const response = await generateContent(prompt, `Plataforma: ${platform}. Analise o perfil @${username} com base nos dados de exemplo fornecidos.`);
-      
-      setResult(response);
+      setResult('');
+      await generateContentStream(
+        prompt,
+        `Plataforma: ${platform}. Analise o perfil @${username} com base nos dados de exemplo fornecidos.`,
+        (chunk) => setResult((prev) => (prev ?? '') + chunk)
+      );
       toast.success('Análise estratégica concluída!');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao analisar perfil.';
@@ -254,9 +257,9 @@ ${profileData.ultimos_posts.map((post, idx) => `${idx + 1}. ${post.tipo} | ${pos
         )}
       </AnimatePresence>
 
-      {/* Loading Animation */}
+      {/* Loading inicial (antes do primeiro chunk) */}
       <AnimatePresence>
-        {loading && (
+        {loading && !result && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/ai';
+import { generateContentStream } from '@/lib/ai';
 import { ADAPT_VIDEO_PROMPT } from '@/lib/prompts';
 import { resolveMediaInput } from '@/lib/resolveMediaInput';
 
@@ -66,8 +66,8 @@ export default function AdaptVideo() {
 
       const selectedTone = toneOptions.find(t => t.value === tone)?.label || 'Direto e Confiante';
       const userMessage = `## Objetivo (prioridade máxima)\n${objective.trim()}\n\n---\n\n## Material do vídeo (fonte: ${resolved.sourceLabel})\n${resolved.text}\n\n---\n\n## Meu nicho\n${niche.trim()}\n\n## Tom desejado\n${selectedTone}`;
-      const response = await generateContent(ADAPT_VIDEO_PROMPT, userMessage);
-      setResult(response);
+      setResult('');
+      await generateContentStream(ADAPT_VIDEO_PROMPT, userMessage, (chunk) => setResult((prev) => (prev ?? '') + chunk));
       toast.success('Concluído!');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao adaptar roteiro.';

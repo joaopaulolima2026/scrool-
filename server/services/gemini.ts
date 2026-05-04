@@ -45,11 +45,8 @@ async function discoverModelWithRetries(): Promise<void> {
 
     if (response.status === 429) {
       const fromHeader = parseRetryAfterSeconds(response);
-      const waitSec =
-        fromHeader ?? clamp(12 * Math.pow(2, attempt), 15, 120);
-      console.warn(
-        `[Gemini] 429 list models → ${waitSec}s (${attempt + 1}/${maxAttempts})`
-      );
+      const waitSec = fromHeader ?? clamp(12 * Math.pow(2, attempt), 15, 120);
+      console.warn(`[Gemini] 429 list models → ${waitSec}s (${attempt + 1}/${maxAttempts})`);
       await sleep(waitSec * 1000);
       continue;
     }
@@ -106,10 +103,29 @@ async function ensureModelResolved(): Promise<string> {
     return cachedModel;
   }
   if (cachedModel) return cachedModel;
-
   await discoverModelWithRetries();
   if (!cachedModel) throw new Error('Gemini: não resolveu modelo.');
   return cachedModel;
+}
+
+function buildRequestBody(systemPrompt: string, userMessage: string) {
+  return JSON.stringify({
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `INSTRUÇÕES DE SISTEMA:\n${systemPrompt}\n\n---\n\nREQUISIÇÃO:\n${userMessage}`,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      topP: 0.95,
+      maxOutputTokens: 4096,
+    },
+  });
 }
 
 export async function generateGeminiContent(
@@ -117,9 +133,7 @@ export async function generateGeminiContent(
   userMessage: string,
   _retryCount = 0
 ): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY não configurada no servidor.');
-  }
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY não configurada no servidor.');
 
   const model = await ensureModelResolved();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -127,31 +141,12 @@ export async function generateGeminiContent(
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `INSTRUÇÕES DE SISTEMA:\n${systemPrompt}\n\n---\n\nREQUISIÇÃO:\n${userMessage}`,
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        topK: 40,
-        maxOutputTokens: 8192,
-      },
-    }),
+    body: buildRequestBody(systemPrompt, userMessage),
   });
 
   type Gen = {
     error?: { message?: string };
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> };
-    }>;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
   const data = (await response.json()) as Gen;
 
@@ -165,11 +160,7 @@ export async function generateGeminiContent(
     if (response.status === 429) throw new Error('Gemini: rate limit.');
 
     const msg = data?.error?.message || `Erro Gemini: ${response.status}`;
-    if (
-      (response.status === 404 || /not\s*found|unsupported/i.test(msg)) &&
-      _retryCount === 0 &&
-      !PINNED_MODEL
-    ) {
+    if ((response.status === 404 || /not\s*found|unsupported/i.test(msg)) && _retryCount === 0 && !PINNED_MODEL) {
       cachedModel = undefined;
       return generateGeminiContent(systemPrompt, userMessage, _retryCount + 1);
     }
@@ -179,4 +170,64 @@ export async function generateGeminiContent(
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini não retornou texto.');
   return text;
+}
+
+export async function streamGeminiContent(
+  systemPrompt: string,
+  userMessage: string,
+  onChunk: (chunk: string) => void,
+  _retryCount = 0
+): Promise<void> {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY não configurada no servidor.');
+
+  const model = await ensureModelResolved();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: buildRequestBody(systemPrompt, userMessage),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429 && _retryCount < 3) {
+      const fromHeader = parseRetryAfterSeconds(response);
+      const waitSec = fromHeader ?? clamp(18 * Math.pow(2, _retryCount), 18, 60);
+      await sleep(waitSec * 1000);
+      return streamGeminiContent(systemPrompt, userMessage, onChunk, _retryCount + 1);
+    }
+    if (response.status === 429) throw new Error('Gemini: rate limit.');
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Erro Gemini stream: ${response.status} ${errText.slice(0, 200)}`);
+  }
+
+  if (!response.body) throw new Error('Gemini: resposta sem body para stream.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (!jsonStr || jsonStr === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(jsonStr) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        const chunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (chunk) onChunk(chunk);
+      } catch {
+        // linha SSE malformada, ignora
+      }
+    }
+  }
 }

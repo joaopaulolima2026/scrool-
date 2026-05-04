@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/ai';
+import { generateContentStream } from '@/lib/ai';
 import { NICHE_MAP_PROMPT } from '@/lib/prompts';
 
 type Platform = 'instagram' | 'tiktok' | 'youtube';
@@ -45,8 +45,8 @@ export default function NicheMap() {
 
     try {
       const userMessage = `Nicho: ${niche}\nPlataforma prioritária: ${platformConfig[platform].label}`;
-      const response = await generateContent(NICHE_MAP_PROMPT, userMessage);
-      setResult(response);
+      setResult('');
+      await generateContentStream(NICHE_MAP_PROMPT, userMessage, (chunk) => setResult((prev) => (prev ?? '') + chunk));
       toast.success('Mapa do nicho gerado!');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao gerar análise.';

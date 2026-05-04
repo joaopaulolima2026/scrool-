@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
-import { generateContent } from '@/lib/ai';
+import { generateContentStream } from '@/lib/ai';
 import { CREATE_SCRIPT_PROMPT } from '@/lib/prompts';
 
 interface Template {
@@ -75,8 +75,8 @@ export default function ScriptCreator() {
 
     try {
       const msg = `## Formato escolhido: ${selected.name}\nDescrição: ${selected.description}\nCategoria/Objetivo: ${selected.category}\n\n## Nicho do usuário:\n${niche}\n\nCrie 1 roteiro completo usando EXATAMENTE este formato "${selected.name}". Inclua hook, corpo, CTA e direção visual.`;
-      const response = await generateContent(CREATE_SCRIPT_PROMPT, msg);
-      setResult(response);
+      setResult('');
+      await generateContentStream(CREATE_SCRIPT_PROMPT, msg, (chunk) => setResult((prev) => (prev ?? '') + chunk));
       toast.success('Roteiro gerado!');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao gerar roteiro.';
