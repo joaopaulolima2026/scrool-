@@ -87,27 +87,25 @@ export async function resolveMediaInput(rawInput: string): Promise<ResolvedMedia
   const plat = detectVideoPlatform(firstLine);
   if (plat === 'tiktok') {
     return {
-      ok: false,
-      message:
-        'TikTok: transcrição automática no navegador não está disponível sem backend.\n\n' +
-        'Copie uma transcrição ou descreva o vídeo aqui.',
+      ok: true,
+      text: `[Referência: link TikTok fornecido — ${firstLine}]\nTranscrição automática não disponível para TikTok. Use o objetivo e nicho informados para adaptar o estilo/formato viral do vídeo referenciado.`,
+      sourceLabel: 'Link TikTok (referência)',
     };
   }
+
   if (plat === 'instagram') {
     return {
-      ok: false,
-      message:
-        'Instagram não expõe Reels públicos só pelo front-end para transcrever aqui.\n\n' +
-        'Cole a legenda/descrição ou você mesmo narre o vídeo neste campo.',
+      ok: true,
+      text: `[Referência: link Instagram fornecido — ${firstLine}]\nTranscrição automática não disponível para Instagram/Reels. Use o objetivo e nicho informados para adaptar o estilo/formato viral do vídeo referenciado.`,
+      sourceLabel: 'Link Instagram (referência)',
     };
   }
 
   if (/^https?:\/\//i.test(firstLine.trim())) {
     return {
-      ok: false,
-      message:
-        'Este link não é reconhecido como vídeo público para busca de legenda (apenas URLs YouTube válidos antes do primeiro parágrafo longo).\n\n' +
-        'Ou cole texto/transcrição manualmente.',
+      ok: true,
+      text: `[Referência: link fornecido — ${firstLine}]\nUse o objetivo e nicho informados para adaptar o conteúdo.`,
+      sourceLabel: 'Link (referência)',
     };
   }
 

@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
+dotenvConfig({ override: true }); // override: garante que o .env sempre prevalece sobre vars do sistema
 import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
@@ -72,8 +73,18 @@ app.post('/api/ai/chat', async (req, res) => {
       const text = await generateClaudeContent(systemPrompt, userMessage);
       return res.json({ ok: true, text });
     }
-    const text = await generateGeminiContent(systemPrompt, userMessage);
-    return res.json({ ok: true, text });
+    try {
+      const text = await generateGeminiContent(systemPrompt, userMessage);
+      return res.json({ ok: true, text });
+    } catch (geminiErr: unknown) {
+      const msg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      if (/rate limit|429|quota/i.test(msg) && process.env.ANTHROPIC_API_KEY?.trim()) {
+        console.warn('[fallback] Gemini rate limit → Claude');
+        const text = await generateClaudeContent(systemPrompt, userMessage);
+        return res.json({ ok: true, text });
+      }
+      throw geminiErr;
+    }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return res.status(502).json({ ok: false, error: msg });
@@ -106,7 +117,17 @@ app.post('/api/ai/stream', async (req, res) => {
     if (p === 'claude' || p === 'anthropic') {
       await streamClaudeContent(systemPrompt, userMessage, send);
     } else {
-      await streamGeminiContent(systemPrompt, userMessage, send);
+      try {
+        await streamGeminiContent(systemPrompt, userMessage, send);
+      } catch (geminiErr: unknown) {
+        const msg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+        if (/rate limit|429|quota/i.test(msg) && process.env.ANTHROPIC_API_KEY?.trim()) {
+          console.warn('[fallback] Gemini rate limit → Claude (stream)');
+          await streamClaudeContent(systemPrompt, userMessage, send);
+        } else {
+          throw geminiErr;
+        }
+      }
     }
     res.write('data: [DONE]\n\n');
   } catch (e: unknown) {

@@ -1,8 +1,8 @@
 /** Servidor Gemini (chaves em GEMINI_*). */
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const PINNED_MODEL =
-  process.env.GEMINI_MODEL?.trim().replace(/^models\//, '') ?? '';
+// Leitura lazy: lê no momento da chamada, não no import (ESM hoist issue)
+const getApiKey = () => process.env.GEMINI_API_KEY?.trim() || '';
+const getPinnedModel = () => process.env.GEMINI_MODEL?.trim().replace(/^models\//, '') ?? '';
 
 interface GeminiModelEntry {
   name?: string;
@@ -37,7 +37,7 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 async function discoverModelWithRetries(): Promise<void> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${getApiKey()}`;
   const maxAttempts = 5;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -98,8 +98,8 @@ async function discoverModelWithRetries(): Promise<void> {
 }
 
 async function ensureModelResolved(): Promise<string> {
-  if (PINNED_MODEL) {
-    cachedModel = PINNED_MODEL;
+  if (getPinnedModel()) {
+    cachedModel = getPinnedModel();
     return cachedModel;
   }
   if (cachedModel) return cachedModel;
@@ -133,10 +133,10 @@ export async function generateGeminiContent(
   userMessage: string,
   _retryCount = 0
 ): Promise<string> {
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY não configurada no servidor.');
+  if (!getApiKey()) throw new Error('GEMINI_API_KEY não configurada no servidor.');
 
   const model = await ensureModelResolved();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getApiKey()}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -160,7 +160,7 @@ export async function generateGeminiContent(
     if (response.status === 429) throw new Error('Gemini: rate limit.');
 
     const msg = data?.error?.message || `Erro Gemini: ${response.status}`;
-    if ((response.status === 404 || /not\s*found|unsupported/i.test(msg)) && _retryCount === 0 && !PINNED_MODEL) {
+    if ((response.status === 404 || /not\s*found|unsupported/i.test(msg)) && _retryCount === 0 && !getPinnedModel()) {
       cachedModel = undefined;
       return generateGeminiContent(systemPrompt, userMessage, _retryCount + 1);
     }
@@ -178,10 +178,10 @@ export async function streamGeminiContent(
   onChunk: (chunk: string) => void,
   _retryCount = 0
 ): Promise<void> {
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY não configurada no servidor.');
+  if (!getApiKey()) throw new Error('GEMINI_API_KEY não configurada no servidor.');
 
   const model = await ensureModelResolved();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${getApiKey()}`;
 
   const response = await fetch(url, {
     method: 'POST',

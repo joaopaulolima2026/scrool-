@@ -174,7 +174,7 @@ export default function NicheMap() {
 
       {/* Loading Animation */}
       <AnimatePresence>
-        {loading && (
+        {loading && !result && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

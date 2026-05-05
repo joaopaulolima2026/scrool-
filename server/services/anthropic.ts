@@ -1,8 +1,7 @@
-const MODEL =
-  process.env.CLAUDE_MODEL?.trim().replace(/^models\//, '') ??
-  'claude-3-5-sonnet-latest';
-
-const KEY = process.env.ANTHROPIC_API_KEY || '';
+// Leitura lazy: lê no momento da chamada, não no import (ESM hoist issue)
+const getKey = () => process.env.ANTHROPIC_API_KEY?.trim() || '';
+const getModel = () =>
+  (process.env.CLAUDE_MODEL?.trim().replace(/^models\//, '') || 'claude-3-5-sonnet-latest');
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,17 +24,17 @@ export async function generateClaudeContent(
   userMessage: string,
   retry = 0
 ): Promise<string> {
-  if (!KEY) throw new Error('ANTHROPIC_API_KEY não configurada no servidor.');
+  if (!getKey()) throw new Error('ANTHROPIC_API_KEY não configurada no servidor.');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': KEY,
+      'x-api-key': getKey(),
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: getModel(),
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
@@ -72,17 +71,17 @@ export async function streamClaudeContent(
   onChunk: (chunk: string) => void,
   retry = 0
 ): Promise<void> {
-  if (!KEY) throw new Error('ANTHROPIC_API_KEY não configurada no servidor.');
+  if (!getKey()) throw new Error('ANTHROPIC_API_KEY não configurada no servidor.');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': KEY,
+      'x-api-key': getKey(),
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: getModel(),
       max_tokens: 4096,
       stream: true,
       system: systemPrompt,

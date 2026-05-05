@@ -246,7 +246,7 @@ export default function VideoMiner() {
 
       {/* Loading */}
       <AnimatePresence>
-        {loading && (
+        {loading && !result && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

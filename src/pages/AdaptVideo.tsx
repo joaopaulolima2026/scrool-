@@ -105,7 +105,7 @@ export default function AdaptVideo() {
           Adapte Virais para o <span className="text-gradient">Seu Nicho</span>
         </motion.h1>
         <p className="text-zinc-400 text-lg max-w-2xl">
-          Defina objetivo + nicho, depois cole link YouTube público ou transcrição. Com o servidor dev do Vite, dá para puxar legendas do YouTube; Instagram/TikTok ainda pedem texto colado.
+          Cole qualquer link (YouTube, Instagram, TikTok) ou transcrição. Para YouTube, as legendas são puxadas automaticamente. Para Instagram e TikTok, a IA usa o objetivo e nicho que você definir para adaptar o formato viral.
         </p>
       </header>
 
@@ -221,7 +221,7 @@ export default function AdaptVideo() {
 
       {/* Loading */}
       <AnimatePresence>
-        {loading && (
+        {loading && !result && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

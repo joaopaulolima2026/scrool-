@@ -177,7 +177,7 @@ export default function ScriptCreator() {
 
       {/* Loading */}
       <AnimatePresence>
-        {loading && (
+        {loading && !result && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="glass-card p-12 rounded-3xl flex flex-col items-center justify-center space-y-6">
             <div className="relative">

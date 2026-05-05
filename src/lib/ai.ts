@@ -43,7 +43,9 @@ export async function generateContentStream(
         if (parsed.error) throw new Error(parsed.error);
         if (parsed.chunk) onChunk(parsed.chunk);
       } catch (e) {
-        if (e instanceof Error && e.message !== raw) throw e;
+        // re-lança só erros de aplicação (não erros de parse de SSE)
+        if (e instanceof SyntaxError) continue;
+        throw e;
       }
     }
   }
