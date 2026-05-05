@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
+import { XCircle } from 'lucide-react';
 import { generateContentStream } from '@/lib/ai';
 import { ADAPT_VIDEO_PROMPT } from '@/lib/prompts';
 import { resolveMediaInput } from '@/lib/resolveMediaInput';
@@ -70,9 +71,14 @@ export default function AdaptVideo() {
       await generateContentStream(ADAPT_VIDEO_PROMPT, userMessage, (chunk) => setResult((prev) => (prev ?? '') + chunk));
       toast.success('Concluído!');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao adaptar roteiro.';
+      const raw = err instanceof Error ? err.message : 'Erro ao adaptar roteiro.';
+      const message = /credit balance|billing/i.test(raw)
+        ? 'Sem créditos na API. Adicione créditos em console.anthropic.com → Billing para usar o Claude.'
+        : /rate limit|429|quota/i.test(raw)
+        ? 'Gemini atingiu o limite gratuito. Aguarde alguns minutos ou adicione créditos Claude.'
+        : raw;
       setError(message);
-      toast.error(message);
+      toast.error(message, { duration: 8000 });
     } finally {
       setLoading(false);
     }

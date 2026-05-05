@@ -51,7 +51,7 @@ export default function NicheMap() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao gerar análise.';
       setError(message);
-      toast.error(message);
+      toast.error(message, { duration: 8000 });
     } finally {
       setLoading(false);
     }

@@ -9,10 +9,12 @@ import VideoMiner from './pages/VideoMiner';
 import Settings from './pages/Settings';
 import Sidebar from './components/layout/Sidebar';
 import { Toaster } from 'sonner';
+import { ApiStatusBanner } from './components/ApiStatusBanner';
 
 function App() {
   return (
     <div className="flex min-h-screen bg-background text-foreground overflow-hidden">
+      <ApiStatusBanner />
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-8 relative">
         {/* Background glow effects */}
